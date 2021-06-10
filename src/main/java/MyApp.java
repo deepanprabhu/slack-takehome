@@ -86,8 +86,6 @@ public class MyApp {
             String metaData = req.getPayload().getView().getPrivateMetadata();
             PrivateMetadata privateMetadata = JsonOps.fromJson(metaData, PrivateMetadata.class);
             app.client().chatPostMessage(r -> r.channel(privateMetadata.channelId).token(ctx.getBotToken()).text("Thanks !"));
-
-
             return ctx.ack();
         });
 
