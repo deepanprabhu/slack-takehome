@@ -1,5 +1,6 @@
 import com.slack.api.bolt.App;
 import com.slack.api.bolt.jetty.SlackAppServer;
+import com.slack.api.bolt.util.JsonOps;
 import com.slack.api.methods.response.views.ViewsOpenResponse;
 import com.slack.api.methods.response.views.ViewsPublishResponse;
 import com.slack.api.app_backend.interactive_components.response.Option;
@@ -19,6 +20,10 @@ import static com.slack.api.model.view.Views.*;
 import static java.util.stream.Collectors.toList;
 
 public class MyApp {
+
+    class PrivateMetadata {
+        String channelId;
+    }
 
     public static View buildModal() {
         return view(view -> view
@@ -75,6 +80,20 @@ public class MyApp {
                     .filter(o -> ((PlainTextObject) o.getText()).getText().toLowerCase().contains(keyword))
                     .collect(toList());
             return ctx.ack(r -> r.options(options.isEmpty() ? allOptions : options));
+        });
+
+        app.blockAction("movie-action", (req, ctx) -> {
+            String metaData = req.getPayload().getView().getPrivateMetadata();
+            PrivateMetadata privateMetadata = JsonOps.fromJson(metaData, PrivateMetadata.class);
+            app.client().chatPostMessage(r -> r.channel(privateMetadata.channelId).token(ctx.getBotToken()).text("Thanks !"));
+
+
+            return ctx.ack();
+        });
+
+        app.viewSubmission("meeting-arrangement", (req, ctx) -> {
+            app.client().chatPostMessage(r -> r.token(ctx.getBotToken()).channel(ctx.getRequestUserId()).text("hi"));
+            return ctx.ack();
         });
 
         app.blockAction("button-action", (req, ctx) -> {
