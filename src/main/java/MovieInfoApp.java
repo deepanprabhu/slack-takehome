@@ -7,8 +7,6 @@ import com.slack.api.model.block.composition.PlainTextObject;
 import com.slack.api.model.event.AppHomeOpenedEvent;
 import com.slack.api.model.view.View;
 import com.slack.api.model.view.ViewState;
-import info.movito.themoviedbapi.TmdbApi;
-import info.movito.themoviedbapi.TmdbMovies;
 import info.movito.themoviedbapi.model.MovieDb;
 
 import java.text.ParseException;
@@ -26,8 +24,14 @@ import static com.slack.api.model.block.element.BlockElements.*;
 import static com.slack.api.model.view.Views.*;
 import static java.util.stream.Collectors.toList;
 
-public class MyApp {
+public class MovieInfoApp {
     static HashMap<Integer, MovieDb> mapOfMovies;
+
+    // helper method to fetch movie ids
+    private static List<Integer> fetchMovieIds(ViewState viewState){
+        List<ViewState.SelectedOption> options = viewState.getValues().get("category-block").get("movie-action").getSelectedOptions();
+        return options.stream().map(option -> Integer.parseInt(option.getValue())).collect(Collectors.toList());
+    }
 
     public static View buildMovieSelectionModal() {
         return view(view -> view
@@ -55,28 +59,24 @@ public class MyApp {
     }
 
 
-
-    public static void main(String[] args) throws Exception {
-        App app = new App();
-        mapOfMovies = DataSource.getMapOfMovies();
-
+    public static void buildHomePage(App app){
         // Display initial home page - and button to act
         app.event(AppHomeOpenedEvent.class, (payload, ctx) -> {
             View appHomeView = view(view -> view
                     .type("home")
                     .blocks(asBlocks(
                             header(header ->
-                            header.text(plainText(pt -> pt.emoji(true).text("*Welcome to Movie Info! :tada:")))),
+                                    header.text(plainText(pt -> pt.emoji(true).text("*Welcome to Movie Info! :tada:")))),
                             section(section ->
                                     section.text(markdownText("Click the button below to pick a movie !"))),
                             divider(),
                             actions(actions ->
                                     actions.elements(
-                                    asElements(
-                                    button(b ->
-                                    b.actionId("home-button-action")
-                                    .text(plainText(pt -> pt.text("Select a Movie !")))
-                                    .value("selected"))))))));
+                                            asElements(
+                                                    button(b ->
+                                                            b.actionId("home-button-action")
+                                                                    .text(plainText(pt -> pt.text("Select a Movie !")))
+                                                                    .value("selected"))))))));
 
             ViewsPublishResponse res = ctx.client().viewsPublish(r -> r
                     .userId(payload.getEvent().getUser())
@@ -84,7 +84,9 @@ public class MyApp {
             );
             return ctx.ack();
         });
+    }
 
+    public static void actOnButtonPressAtHomePage(App app){
         //  Handle button action - show Modal for screen 2
         app.blockAction("home-button-action", (req, ctx) -> {
             ViewsOpenResponse viewsOpenRes = ctx.client().viewsOpen(r -> r
@@ -92,13 +94,15 @@ public class MyApp {
                     .view(buildMovieSelectionModal()));
             return ctx.ack();
         });
+    }
 
+    public static void doTypeAheadMovieSearch(App app){
         app.blockSuggestion("movie-action", (req, ctx) -> {
             final List<Option> allOptions = new ArrayList<>();
 
             mapOfMovies.keySet().forEach(movieId ->
                     allOptions.
-                    add(new Option(plainText(mapOfMovies.get(movieId).getTitle(), true), String.valueOf(movieId)))
+                            add(new Option(plainText(mapOfMovies.get(movieId).getTitle(), true), String.valueOf(movieId)))
             );
 
             String keyword = req.getPayload().getValue();
@@ -109,9 +113,11 @@ public class MyApp {
 
             return ctx.ack(r -> r.options(options.isEmpty() ? allOptions : options));
         });
+    }
 
+    public static void sendNiceMovieMessageToUser(App app){
         app.viewSubmission("movie-title-selection", (req, ctx) -> {
-            List<Integer> movieIds = fetchMovieId(req.getPayload().getView().getState());
+            List<Integer> movieIds = fetchMovieIds(req.getPayload().getView().getState());
             for(Integer movieId : movieIds) {
                 MovieDb movieDb = mapOfMovies.get(movieId);
 
@@ -121,7 +127,7 @@ public class MyApp {
                     SimpleDateFormat iFormat = new SimpleDateFormat("yyyy-MM-dd");
                     SimpleDateFormat oFormat = new SimpleDateFormat("MMMM dd, yyyy");
                     Date inputDate = iFormat.parse(movieDb.getReleaseDate());
-                    sb.append("*Release Date*:").append(oFormat.format(inputDate));
+                    sb.append("*Release Date* :").append(oFormat.format(inputDate));
                 }
                 catch (ParseException parseException){
                     System.out.println("Date parsing error");
@@ -141,14 +147,26 @@ public class MyApp {
             }
             return ctx.ack();
         });
+    }
+
+    /**
+     * Compact main method and invocation
+     */
+    public static void main(String[] args) throws Exception {
+        App app = new App();
+
+        //Setup data
+        mapOfMovies = TMDBDataSource.getMapOfMovies();
+
+        //Build Slack UI and Logic
+        buildHomePage(app);
+        actOnButtonPressAtHomePage(app);
+        doTypeAheadMovieSearch(app);
+        sendNiceMovieMessageToUser(app);
 
         SlackAppServer slackAppServer = new SlackAppServer(app);
         slackAppServer.start();
-
     }
 
-    public static List<Integer> fetchMovieId(ViewState viewState){
-        List<ViewState.SelectedOption> options = viewState.getValues().get("category-block").get("movie-action").getSelectedOptions();
-        return options.stream().map(option -> Integer.parseInt(option.getValue())).collect(Collectors.toList());
-    }
+
 }

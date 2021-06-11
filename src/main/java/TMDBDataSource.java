@@ -5,7 +5,7 @@ import info.movito.themoviedbapi.model.MovieDb;
 
 import java.util.HashMap;
 
-public class DataSource {
+public class TMDBDataSource {
     static HashMap<Integer, MovieDb> mapOfMovies = new HashMap<>();
 
     private static void loadMovies(){
@@ -43,7 +43,7 @@ public class DataSource {
         }
     }
 
-    private DataSource(){
+    private TMDBDataSource(){
     }
 
     // factory method to load movies and return map
