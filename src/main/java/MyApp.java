@@ -1,18 +1,19 @@
 import com.slack.api.app_backend.interactive_components.response.Option;
 import com.slack.api.bolt.App;
 import com.slack.api.bolt.jetty.SlackAppServer;
-import com.slack.api.bolt.util.JsonOps;
 import com.slack.api.methods.response.views.ViewsOpenResponse;
 import com.slack.api.methods.response.views.ViewsPublishResponse;
 import com.slack.api.model.block.composition.PlainTextObject;
+import com.slack.api.model.block.element.BlockElements;
 import com.slack.api.model.event.AppHomeOpenedEvent;
 import com.slack.api.model.view.View;
 import com.slack.api.model.view.ViewState;
-import info.movito.themoviedbapi.TmdbAccount;
 import info.movito.themoviedbapi.TmdbApi;
 import info.movito.themoviedbapi.TmdbMovies;
 import info.movito.themoviedbapi.model.MovieDb;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -147,12 +148,29 @@ public class MyApp {
             List<Integer> movieIds = fetchMovieId(req.getPayload().getView().getState());
             for(Integer movieId : movieIds) {
                 MovieDb movieDb = mapOfMovies.get(movieId);
+
+                StringBuilder sb = new StringBuilder();
+
+                try {
+                    SimpleDateFormat iFormat = new SimpleDateFormat("yyyy-MM-dd");
+                    SimpleDateFormat oFormat = new SimpleDateFormat("MMMM dd, yyyy");
+                    Date inputDate = iFormat.parse(movieDb.getReleaseDate());
+                    sb.append("*Release Date*:").append(oFormat.format(inputDate));
+                }
+                catch (ParseException parseException){
+                    System.out.println("Date parsing error");
+                }
+
+                String imageUrl = "https://image.tmdb.org/t/p/w600_and_h900_bestv2" + movieDb.getPosterPath();
+
+
                 app.client().chatPostMessage(r -> r.token(ctx.getBotToken()).channel(ctx.getRequestUserId())
                         .blocks(asBlocks(
                                 header(t -> t.text(plainText(movieDb.getTitle()))),
                                 divider(),
-                                section(section -> section.text(markdownText("**Release Date:**" + movieDb.getReleaseDate()))),
-                                section(section -> section.text(markdownText(movieDb.getOverview())))
+                                section(section -> section.text(markdownText(sb.toString()))),
+                                section(section -> section.text(markdownText(movieDb.getOverview()))
+                                        .accessory(imageElement(im -> im.imageUrl(imageUrl).altText("Movie poster Thumb"))))
                         )));
             }
             return ctx.ack();
@@ -166,9 +184,5 @@ public class MyApp {
     public static List<Integer> fetchMovieId(ViewState viewState){
         List<ViewState.SelectedOption> options = viewState.getValues().get("category-block").get("movie-action").getSelectedOptions();
         return options.stream().map(option -> Integer.parseInt(option.getValue())).collect(Collectors.toList());
-    }
-
-    public static void craftTextMessage(int movieId){
-
     }
 }
