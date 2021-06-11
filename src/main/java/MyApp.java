@@ -4,7 +4,6 @@ import com.slack.api.bolt.jetty.SlackAppServer;
 import com.slack.api.methods.response.views.ViewsOpenResponse;
 import com.slack.api.methods.response.views.ViewsPublishResponse;
 import com.slack.api.model.block.composition.PlainTextObject;
-import com.slack.api.model.block.element.BlockElements;
 import com.slack.api.model.event.AppHomeOpenedEvent;
 import com.slack.api.model.view.View;
 import com.slack.api.model.view.ViewState;
@@ -14,7 +13,10 @@ import info.movito.themoviedbapi.model.MovieDb;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.slack.api.model.block.Blocks.*;
@@ -25,8 +27,7 @@ import static com.slack.api.model.view.Views.*;
 import static java.util.stream.Collectors.toList;
 
 public class MyApp {
-
-    static HashMap<Integer, MovieDb> mapOfMovies = new HashMap<>();
+    static HashMap<Integer, MovieDb> mapOfMovies;
 
     public static View buildMovieSelectionModal() {
         return view(view -> view
@@ -53,46 +54,11 @@ public class MyApp {
                         ))));
     }
 
-    //  Load movies from tmdb
-    public static void loadMovies(){
-        //https://github.com/holgerbrandl/themoviedbapi
-        // Get movies related to star wars
-        // curl --location --request GET 'https://api.themoviedb.org/3/search/movie?api_key=179cfa0a673b02ddfa1a6aa6629fa730&query=star+wars'
 
-        // Hard coded for star wars as in example
-        TmdbMovies movies = new TmdbApi("179cfa0a673b02ddfa1a6aa6629fa730").getMovies();
-        int[] movieIds =   {11,
-                181812,
-                181808,
-                348350,
-                140607,
-                732670,
-                330459,
-                12180,
-                392216,
-                1893,
-                667574,
-                1895,
-                42979,
-                1894,
-                74849,
-                435365,
-                825647,
-                287663,
-                42982,
-                70608};
-
-        int movieIndex = 0;
-        for(int movieId : movieIds){
-            MovieDb movieDb = movies.getMovie(movieId, "en", TmdbMovies.MovieMethod.images, TmdbMovies.MovieMethod.release_dates);
-            mapOfMovies.put(movieId, movieDb);
-        }
-        System.out.println(mapOfMovies.size());
-    }
 
     public static void main(String[] args) throws Exception {
         App app = new App();
-        loadMovies();
+        mapOfMovies = DataSource.getMapOfMovies();
 
         // Display initial home page - and button to act
         app.event(AppHomeOpenedEvent.class, (payload, ctx) -> {
